@@ -1,0 +1,3 @@
+[submodule "thirdparty/vggt"]
+	path = thirdparty/vggt
+	url = https://github.com/facebookresearch/vggt.git

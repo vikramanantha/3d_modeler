@@ -126,8 +126,10 @@
                 
                 data.models.forEach((model, index) => {
                     // Add to MODELS registry (including photos array)
+                    // Use relative path - should work for both local and GitHub Pages
+                    const modelPath = `../images/3d/${model.file}`;
                     MODELS[model.id] = {
-                        path: `../images/3d/${model.file}`,
+                        path: modelPath,
                         name: model.name,
                         photos: model.photos || [],
                         location: model.location || '',
@@ -223,7 +225,7 @@
             });
         }
 
-        function loadModel(modelKey) {
+        async function loadModel(modelKey) {
             const modelData = MODELS[modelKey];
             if (!modelData) return;
 
@@ -259,7 +261,23 @@
                 pointsObject = null;
             }
 
+            // Verify the file exists and is accessible before loading
+            try {
+                const response = await fetch(modelData.path, { method: 'HEAD' });
+                if (!response.ok) {
+                    throw new Error(`File not found: ${modelData.path} (Status: ${response.status})`);
+                }
+                const contentType = response.headers.get('content-type');
+                if (contentType && !contentType.includes('model/gltf') && !contentType.includes('application/octet-stream')) {
+                    console.warn(`Unexpected content type: ${contentType} for ${modelData.path}`);
+                }
+            } catch (fetchError) {
+                console.error('Error checking model file:', fetchError);
+                // Continue anyway - the GLTFLoader will handle the error
+            }
+
             const loader = new GLTFLoader();
+            console.log('Loading model from path:', modelData.path);
             loader.load(
                 modelData.path,
                 (gltf) => {
@@ -350,6 +368,27 @@
                 },
                 (error) => {
                     console.error('Error loading model:', error);
+                    console.error('Failed path:', modelData.path);
+                    console.error('Error details:', {
+                        message: error.message,
+                        response: error.response,
+                        status: error.status
+                    });
+                    
+                    // Try to fetch the file directly to see what we're getting
+                    fetch(modelData.path)
+                        .then(response => {
+                            console.log('Fetch response status:', response.status);
+                            console.log('Fetch response headers:', Object.fromEntries(response.headers.entries()));
+                            return response.text();
+                        })
+                        .then(text => {
+                            console.log('Response preview (first 200 chars):', text.substring(0, 200));
+                        })
+                        .catch(fetchError => {
+                            console.error('Fetch error:', fetchError);
+                        });
+                    
                     loadingIndicator.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Error loading model</span>';
                 }
             );

@@ -101,6 +101,39 @@
         // Model registry - populated from JSON
         let MODELS = {};
         const MODELS_JSON_PATH = '../images/3d/models.json';
+        
+        // GitHub repository configuration
+        const GITHUB_USERNAME = 'vikramanantha';
+        const GITHUB_REPO = 'vikramanantha.github.io';
+        const GITHUB_BRANCH = 'main'; // or 'master' depending on your default branch
+        
+        // Detect if we're on GitHub Pages or local
+        function isGitHubPages() {
+            return window.location.hostname.includes('github.io') || 
+                   window.location.hostname.includes('github.com');
+        }
+        
+        // Get the base path for 3D model files
+        function getModelBasePath() {
+            if (isGitHubPages()) {
+                // Use GitHub raw URLs for LFS files on GitHub Pages
+                return `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO}/${GITHUB_BRANCH}/images/3d/`;
+            } else {
+                // Use relative paths for local development (works with LFS files)
+                return '../images/3d/';
+            }
+        }
+        
+        // Get the base path for photo files
+        function getPhotoBasePath() {
+            if (isGitHubPages()) {
+                // Use GitHub raw URLs for photos on GitHub Pages
+                return `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO}/${GITHUB_BRANCH}/images/3d/`;
+            } else {
+                // Use relative paths for local development
+                return '../images/3d/';
+            }
+        }
 
         let scene, camera, renderer, controls, currentModel;
         let cameraObjects = []; // Store references to camera frustum objects
@@ -124,14 +157,19 @@
                 MODELS = {};
                 modelSelect.innerHTML = ''; // Clear loading message
                 
+                const modelBasePath = getModelBasePath();
+                const photoBasePath = getPhotoBasePath();
+                
                 data.models.forEach((model, index) => {
                     // Add to MODELS registry (including photos array)
-                    // Use relative path - should work for both local and GitHub Pages
-                    const modelPath = `../images/3d/${model.file}`;
+                    // Use environment-aware paths (GitHub raw URLs for GitHub Pages, relative for local)
+                    const modelPath = modelBasePath + model.file;
+                    const photos = (model.photos || []).map(photo => photoBasePath + photo);
+                    
                     MODELS[model.id] = {
                         path: modelPath,
                         name: model.name,
-                        photos: model.photos || [],
+                        photos: photos,
                         location: model.location || '',
                         mapsLink: model.maps_link || ''
                     };
@@ -216,6 +254,10 @@
 
             // Start animation loop
             animate();
+            
+            // Log environment detection for debugging
+            console.log('Environment detected:', isGitHubPages() ? 'GitHub Pages' : 'Local');
+            console.log('Model base path:', getModelBasePath());
             
             // Load models config and then load the first model
             loadModelsConfig().then(firstModelId => {
@@ -453,7 +495,8 @@
                 imgContainer.className = 'photo-item';
                 
                 const img = document.createElement('img');
-                img.src = `../images/3d/${photoPath}`;
+                // photoPath is already the full path (with base path included)
+                img.src = photoPath;
                 img.alt = `Source photo ${index + 1}`;
                 img.loading = 'lazy'; // Lazy load for performance
                 

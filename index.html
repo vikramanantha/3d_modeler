@@ -100,40 +100,30 @@
 
         // Model registry - populated from JSON
         let MODELS = {};
-        const MODELS_JSON_PATH = '../images/3d/models.json';
         
-        // GitHub repository configuration
-        const GITHUB_USERNAME = 'vikramanantha';
-        const GITHUB_REPO = 'vikramanantha.github.io';
-        const GITHUB_BRANCH = 'main'; // or 'master' depending on your default branch
-        
-        // Detect if we're on GitHub Pages or local
-        function isGitHubPages() {
-            return window.location.hostname.includes('github.io') || 
-                   window.location.hostname.includes('github.com');
-        }
-        
-        // Get the base path for 3D model files
-        function getModelBasePath() {
-            if (isGitHubPages()) {
-                // Use GitHub raw URLs for LFS files on GitHub Pages
-                return `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO}/${GITHUB_BRANCH}/images/3d/`;
-            } else {
-                // Use relative paths for local development (works with LFS files)
-                return '../images/3d/';
+        // Configuration
+        const CONFIG = {
+            github: {
+                username: 'vikramanantha',
+                repo: 'vikramanantha.github.io',
+                branch: 'main'
+            },
+            paths: {
+                modelsJson: '../images/3d/models.json',
+                assets: 'images/3d/'
             }
-        }
+        };
         
-        // Get the base path for photo files
-        function getPhotoBasePath() {
-            if (isGitHubPages()) {
-                // Use GitHub raw URLs for photos on GitHub Pages
-                return `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO}/${GITHUB_BRANCH}/images/3d/`;
-            } else {
-                // Use relative paths for local development
-                return '../images/3d/';
+        // Use relative paths locally (avoids CORS), GitHub raw URLs in production (for LFS)
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        const getAssetUrl = (relativePath) => {
+            if (isLocalhost) {
+                return `../${CONFIG.paths.assets}${relativePath}`;
             }
-        }
+            const { username, repo, branch } = CONFIG.github;
+            return `https://github.com/${username}/${repo}/raw/${branch}/${CONFIG.paths.assets}${relativePath}`;
+        };
 
         let scene, camera, renderer, controls, currentModel;
         let cameraObjects = []; // Store references to camera frustum objects
@@ -150,31 +140,22 @@
         // Load models config from JSON
         async function loadModelsConfig() {
             try {
-                const response = await fetch(MODELS_JSON_PATH);
+                const response = await fetch(CONFIG.paths.modelsJson);
                 const data = await response.json();
                 
                 // Build MODELS object and populate dropdown
                 MODELS = {};
-                modelSelect.innerHTML = ''; // Clear loading message
-                
-                const modelBasePath = getModelBasePath();
-                const photoBasePath = getPhotoBasePath();
+                modelSelect.innerHTML = '';
                 
                 data.models.forEach((model, index) => {
-                    // Add to MODELS registry (including photos array)
-                    // Use environment-aware paths (GitHub raw URLs for GitHub Pages, relative for local)
-                    const modelPath = modelBasePath + model.file;
-                    const photos = (model.photos || []).map(photo => photoBasePath + photo);
-                    
                     MODELS[model.id] = {
-                        path: modelPath,
+                        path: getAssetUrl(model.file),
                         name: model.name,
-                        photos: photos,
+                        photos: (model.photos || []).map(getAssetUrl),
                         location: model.location || '',
                         mapsLink: model.maps_link || ''
                     };
                     
-                    // Add option to dropdown
                     const option = document.createElement('option');
                     option.value = model.id;
                     option.textContent = model.name;
@@ -254,10 +235,6 @@
 
             // Start animation loop
             animate();
-            
-            // Log environment detection for debugging
-            console.log('Environment detected:', isGitHubPages() ? 'GitHub Pages' : 'Local');
-            console.log('Model base path:', getModelBasePath());
             
             // Load models config and then load the first model
             loadModelsConfig().then(firstModelId => {

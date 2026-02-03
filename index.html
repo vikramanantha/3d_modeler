@@ -114,15 +114,21 @@
             }
         };
         
-        // Use relative paths locally (avoids CORS), GitHub raw URLs in production (for LFS)
+        // URL resolvers for different asset types
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         
-        const getAssetUrl = (relativePath) => {
+        // For LFS files (GLB models) - use media.githubusercontent.com in production
+        const getModelUrl = (relativePath) => {
             if (isLocalhost) {
                 return `../${CONFIG.paths.assets}${relativePath}`;
             }
             const { username, repo, branch } = CONFIG.github;
-            return `https://github.com/${username}/${repo}/raw/${branch}/${CONFIG.paths.assets}${relativePath}`;
+            return `https://media.githubusercontent.com/media/${username}/${repo}/${branch}/${CONFIG.paths.assets}${relativePath}`;
+        };
+        
+        // For regular files (photos) - use relative paths everywhere
+        const getPhotoUrl = (relativePath) => {
+            return `../${CONFIG.paths.assets}${relativePath}`;
         };
 
         let scene, camera, renderer, controls, currentModel;
@@ -149,9 +155,9 @@
                 
                 data.models.forEach((model, index) => {
                     MODELS[model.id] = {
-                        path: getAssetUrl(model.file),
+                        path: getModelUrl(model.file),
                         name: model.name,
-                        photos: (model.photos || []).map(getAssetUrl),
+                        photos: (model.photos || []).map(getPhotoUrl),
                         location: model.location || '',
                         mapsLink: model.maps_link || ''
                     };
